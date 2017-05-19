@@ -84,6 +84,22 @@ class Filesystem implements Adapter
     }
 
     /**
+     * Sets the metric and persists it to disk.
+     *
+     * @param $metric
+     */
+    private function setMetric($metric)
+    {
+        $metrics           = $this->readMetricsFromDisk();
+        $metric['samples'] = $this->sortSamples($metric['samples']);
+
+        $gauges  = new MetricFamilySamples($metric);
+        $metrics = array_merge($metrics, array($this->typeKey($metric) => $gauges));
+
+        $this->writeMetricsToDisk($metrics);
+    }
+
+    /**
      * @param array $options
      */
     public static function setDefaultOptions(array $options)
@@ -133,9 +149,6 @@ class Filesystem implements Adapter
         $typeKey     = $this->typeKey($dataToStore);
         $metric      = $this->getMetric($typeKey);
 
-        // Todo: Remove this
-        $metrics = $this->readMetricsFromDisk();
-
         $metricData = array(
             'name'       => $dataToStore['name'],
             'help'       => $dataToStore['help'],
@@ -166,13 +179,8 @@ class Filesystem implements Adapter
         );
 
         $metricData['samples'][$this->valueKey($sample)] = $sample;
-        $metricData['samples'] = $this->sortSamples($metricData['samples']);
 
-        $gauges = new MetricFamilySamples($metricData);
-
-        $metrics = array_merge($metrics, array($typeKey => $gauges));
-
-        $this->writeMetricsToDisk($metrics);
+        $this->setMetric($metricData);
     }
 
     /**
