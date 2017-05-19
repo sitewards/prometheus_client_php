@@ -142,20 +142,17 @@ class Filesystem implements Adapter
     public function updateGauge(array $dataToStore)
     {
         // Todo: Need to add or update it based on the command entry
-
-        // Todo: This will all need to be pulled out into a "getMetric" or something. Manipulating the blob for each
-        // metric is too messy.
-
         $typeKey     = $this->typeKey($dataToStore);
         $metric      = $this->getMetric($typeKey);
 
-        $metricData = array(
+        $data = array(
             'name'       => $dataToStore['name'],
             'help'       => $dataToStore['help'],
             'type'       => $dataToStore['type'],
             'labelNames' => $dataToStore['labelNames']
         );
 
+        // Merge logic
         if ($metric) {
             /** @var \Prometheus\Sample[] $samples */
             $samples = $metric->getSamples();
@@ -167,7 +164,7 @@ class Filesystem implements Adapter
                     'value' => $sampleObject->getValue()
                 );
 
-                $metricData['samples'][$this->valueKey($sample)] = $sample;
+                $data['samples'][$this->valueKey($sample)] = $sample;
             }
         }
 
@@ -178,9 +175,9 @@ class Filesystem implements Adapter
             'value'       => $dataToStore['value']
         );
 
-        $metricData['samples'][$this->valueKey($sample)] = $sample;
+        $data['samples'][$this->valueKey($sample)] = $sample;
 
-        $this->setMetric($metricData);
+        $this->setMetric($data);
     }
 
     /**
