@@ -161,12 +161,32 @@ class Filesystem implements Adapter
         );
 
         $metricData['samples'][$this->valueKey($sample)] = $sample;
+        $metricData['samples'] = $this->sortSamples($metricData['samples']);
 
         $gauges = new MetricFamilySamples($metricData);
 
         $metrics = array_merge($metrics, array($typeKey => $gauges));
 
         $this->writeMetricsToDisk($metrics);
+    }
+
+    /**
+     * Sorts the samples alphabetically, based on label name
+     */
+    private function sortSamples($samples)
+    {
+        usort(
+            $samples,
+            function ($a, $b) {
+                if (isset($a['labelValues']) && count($a['labelValues'])) {
+                    return strcmp($a['labelValues'][0], $b['labelValues'][0]);
+                }
+
+                return 0;
+            }
+        );
+
+        return $samples;
     }
 
     public function collect()
@@ -234,14 +254,6 @@ class Filesystem implements Adapter
      */
     private function writeMetricsToDisk(array $metrics)
     {
-        // Sort the metrics.
-        usort(
-            $metrics,
-            function ($element) {
-                $foo = $element;
-            }
-        );
-
         $content = $this->renderer->render($metrics);
 
         fwrite($this->getFileHandle(self::FILE_MODE_WRITE), $content);
