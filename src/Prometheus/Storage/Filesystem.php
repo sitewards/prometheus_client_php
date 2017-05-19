@@ -6,6 +6,7 @@ use Prometheus\MetricFamilySamples;
 use Prometheus\Exception\StorageException;
 use Prometheus\Gauge;
 use Prometheus\Histogram;
+use Prometheus\ParseTextFormat;
 use Prometheus\RenderTextFormat;
 
 /**
@@ -24,6 +25,11 @@ class Filesystem implements Adapter
      * @var RenderTextFormat;
      */
     private $renderer;
+
+    /**
+     * @var ParseTextFormat
+     */
+    private $parser;
 
     /**
      * The default filename for the metrics to be persisted. The .prom suffix comes from the node exporter's convention
@@ -60,6 +66,7 @@ class Filesystem implements Adapter
         }
 
         $this->renderer = new RenderTextFormat();
+        $this->parser   = new ParseTextFormat();
         $this->options  = array_merge(self::$defaultOptions, $options);
     }
 
@@ -153,6 +160,16 @@ class Filesystem implements Adapter
     private function readMetricsFromDisk()
     {
         $handle   = $this->getFileHandle();
+
+        // The results of previous filesize checks in this file will be cached by PHP, and will influence the amount of
+        // content read by PHP the second filesize check. We are deliberately persisting the metrics to disk multiple
+        // times in a request, so as not to lose the content.
+        //
+        // Thus, we need to clear the stat cache and ensure the filesize lookup is fresh reach read.
+        //
+        // See http://php.net/manual/en/function.filesize.php#refsect1-function.filesize-notes
+        clearstatcache();
+
         $filesize = filesize($this->options['path']);
 
         if ($filesize === 0) {
@@ -161,8 +178,7 @@ class Filesystem implements Adapter
 
         $contents = fread($handle, filesize($this->options['path']));
 
-        // Todo: Implement the parser here. Needs to generate an array of MetricFamilySamples
-        return array();
+        return $this->parser->parse($contents);
     }
 
     /**
@@ -188,7 +204,7 @@ class Filesystem implements Adapter
      */
     private function getFileHandle()
     {
-        $handle = fopen($this->options['path'], 'w+');
+        $handle = fopen($this->options['path'], 'r+');
 
         if ($handle === false) {
             throw new StorageException(
