@@ -93,8 +93,8 @@ class Filesystem implements Adapter
         $metrics           = $this->readMetricsFromDisk();
         $metric['samples'] = $this->sortSamples($metric['samples']);
 
-        $gauges  = new MetricFamilySamples($metric);
-        $metrics = array_merge($metrics, array($this->typeKey($metric) => $gauges));
+        $familySamples  = new MetricFamilySamples($metric);
+        $metrics = array_merge($metrics, array($this->typeKey($metric) => $familySamples));
 
         $this->writeMetricsToDisk($metrics);
     }
@@ -107,9 +107,33 @@ class Filesystem implements Adapter
         self::$defaultOptions = array_merge(self::$defaultOptions, $options);
     }
 
-    public function updateHistogram(array $data)
+    /**
+     * The histogram is managed a series of individual metrics
+     *
+     * @param array $dataToStore
+     */
+    public function updateHistogram(array $dataToStore)
     {
-        // TODO: Implement updateHistogram() method.
+        // Create the bucke template value. The additional value '+Inf' is added into the series, and is treated as the
+        // highest value.
+        // See https://prometheus.io/docs/instrumenting/exposition_formats/#text-format-details
+        $bucketToIncrease = '+Inf';
+
+        // Determine where to put the bucket value
+        foreach ($dataToStore['buckets'] as $bucket) {
+            if ($dataToStore['value'] <= $bucket) {
+                $bucketToIncrease = $bucket;
+                break;
+            }
+        }
+
+        // Create the bucket metrics
+        $buckets   = $dataToStore['buckets'];
+        $buckets[] = '+Inf';
+
+        foreach ($buckets as $bucket) {
+            $this->mergeMetric(self::COMMAND_INCREMENT_INTEGER, $dataToStore);
+        }
     }
 
     private function mergeMetric($operation, $dataToStore)
