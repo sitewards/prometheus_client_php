@@ -119,7 +119,8 @@ class Filesystem implements Adapter
         // Todo: This will all need to be pulled out into a "getMetric" or something. Manipulating the blob for each
         // metric is too messy.
 
-        $key     = $this->typeKey($dataToStore);
+        $typeKey     = $this->typeKey($dataToStore);
+        $valueKey    = $this->valueKey($dataToStore);
         $currentMetric = array_filter(
             $metrics,
             function ($family) use ($dataToStore) {
@@ -148,7 +149,7 @@ class Filesystem implements Adapter
             foreach ($samples as $sampleObject) {
                 $sample = array(
                     'name' => $sampleObject->getName(),
-                    'labelNames' => $sampleObject->getLabelNames(),
+                    'labelNames' => array(),
                     'labelValues' => $sampleObject->getLabelValues(),
                     'value' => $sampleObject->getValue()
                 );
@@ -159,7 +160,7 @@ class Filesystem implements Adapter
 
         $sample = array(
             'name'        => $dataToStore['name'],
-            'labelNames'  => $dataToStore['labelNames'],
+            'labelNames'  => array(),
             'labelValues' => $dataToStore['labelValues'],
             'value'       => $dataToStore['value']
         );
@@ -168,7 +169,7 @@ class Filesystem implements Adapter
 
         $gauges = new MetricFamilySamples($metricData);
 
-        $metrics = array_merge($metrics, array($key => $gauges));
+        $metrics = array_merge($metrics, array($typeKey => $gauges));
 
         $this->writeMetricsToDisk($metrics);
     }
@@ -209,9 +210,24 @@ class Filesystem implements Adapter
             return array();
         }
 
-        $contents = fread($handle, filesize($this->options['path']));
+        $contents   = fread($handle, filesize($this->options['path']));
+        $metrics    = $this->parser->parse($contents);
+        $keyMetrics = array();
 
-        return $this->parser->parse($contents);
+        foreach ($metrics as $metric) {
+            /** @var MetricFamilySamples $metric */
+            $key = $this->typeKey(
+                array(
+                    'type' => $metric->getType(),
+                    'name' => $metric->getName(),
+                    'labelNames' => $metric->getLabelNames()
+                )
+            );
+
+            $keyMetrics[$key] = $metric;
+        }
+
+        return $keyMetrics;
     }
 
     /**
@@ -285,9 +301,6 @@ class Filesystem implements Adapter
      *
      * array(
      *   'name' => 'foo_metric_name',
-     *   'labelNames' => array(
-     *      'foo'
-     *   ),
      *   'labelValues' => array(
      *      'bar'
      *   ),
@@ -302,7 +315,6 @@ class Filesystem implements Adapter
             array(
                 self::PROMETHEUS_PREFIX,
                 $data['name'],
-                json_encode($data['labelNames']),
                 json_encode($data['labelValues'])
             )
         );
