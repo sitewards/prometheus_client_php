@@ -43,7 +43,7 @@ class ParseTextFormat
     {
         // Clean text. Prevents a case where a line ending is the only content in the file. Uses a custom character list
         // as the default character list includes the "#" character.
-        $text  = trim($text, " \r\n");
+        $text = trim($text, " \r\n");
 
         if (strlen($text) === 0) {
             return array();
@@ -65,7 +65,8 @@ class ParseTextFormat
                 // request) this will throw an exception as it attempts to parse. We drop this exception delibrately, as
                 // metric collecting should not block a request.
                 try {
-                    $metrics = array_merge_recursive($metrics, $this->getMetric($line));
+                    $metric  = $this->getMetric($line);
+                    $metrics = array_merge_recursive($metrics, $metric);
                 } catch (\Exception $e) {
                     // Exception is discarded. Ideally, this would be logged, but there is no logging interface for this
                     // library to tap into.
@@ -78,21 +79,25 @@ class ParseTextFormat
         // then use that primitive to build MetricFamilySamples
         foreach ($metrics as $name => $data) {
             if (!isset($familySamples[$name])) {
+                $sample = $data[0];
+
                 $familySamples[$name] = array(
                     'name'       => $name,
                     'help'       => isset($metadata[$name]['help']) ? $metadata[$name]['help'] : '',
                     'type'       => isset($metadata[$name]['type']) ? $metadata[$name]['type'] : '',
-                    'labelNames' => $data['labels'],
+                    'labelNames' => $sample['labels'],
                     'samples'    => array()
                 );
             }
 
-            $familySamples[$name]['samples'][] = array(
-                'name'        => $name,
-                'labelNames'  => $data['labels'],
-                'labelValues' => $data['labelValues'],
-                'value'       => $data['value']
-            );
+            foreach ($data as $sample) {
+                $familySamples[$name]['samples'][] = array(
+                    'name'        => $name,
+                    'labelNames'  => array(),
+                    'labelValues' => $sample['labelValues'],
+                    'value'       => $sample['value']
+                );
+            }
         }
 
         // Build the metricFamilySamples objects
@@ -187,9 +192,11 @@ class ParseTextFormat
 
         return array(
             $metricName => array(
-                'labels'      => $labels,
-                'labelValues' => $labelValues,
-                'value'       => $value
+                array(
+                    'labels'      => $labels,
+                    'labelValues' => $labelValues,
+                    'value'       => $value
+                )
             )
         );
     }
