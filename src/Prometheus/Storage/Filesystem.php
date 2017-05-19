@@ -116,9 +116,22 @@ class Filesystem implements Adapter
         // Todo: Need to add or update it based on the command entry
 
         $metrics = $this->readMetricsFromDisk();
-        $key     = $this->storageKey($dataToStore);
+        // Todo: This will all need to be pulled out into a "getMetric" or something. Manipulating the blob for each
+        // metric is too messy.
 
-        // Todo: This metricData stuff is probably going to need ot be parsed form disk also
+        $key     = $this->typeKey($dataToStore);
+        $currentMetric = array_filter(
+            $metrics,
+            function ($family) use ($dataToStore) {
+                /** @var $family MetricFamilySamples */
+                if ($family->getName() === $dataToStore['name']) {
+                    return true;
+                }
+
+                return false;
+            }
+        );
+
         $metricData = array(
             'name'       => $dataToStore['name'],
             'help'       => $dataToStore['help'],
@@ -126,12 +139,32 @@ class Filesystem implements Adapter
             'labelNames' => $dataToStore['labelNames']
         );
 
-        $metricData['samples'][] = array(
+        if ($currentMetric) {
+            /** @var MetricFamilySamples $currentMetric */
+            $currentMetric = array_shift($currentMetric);
+
+            /** @var \Prometheus\Sample[] $samples */
+            $samples = $currentMetric->getSamples();
+            foreach ($samples as $sampleObject) {
+                $sample = array(
+                    'name' => $sampleObject->getName(),
+                    'labelNames' => $sampleObject->getLabelNames(),
+                    'labelValues' => $sampleObject->getLabelValues(),
+                    'value' => $sampleObject->getValue()
+                );
+
+                $metricData['samples'][$this->valueKey($sample)] = $sample;
+            }
+        }
+
+        $sample = array(
             'name'        => $dataToStore['name'],
-            'labelNames'  => array(),
+            'labelNames'  => $dataToStore['labelNames'],
             'labelValues' => $dataToStore['labelValues'],
             'value'       => $dataToStore['value']
         );
+
+        $metricData['samples'][$this->valueKey($sample)] = $sample;
 
         $gauges = new MetricFamilySamples($metricData);
 
@@ -219,10 +252,21 @@ class Filesystem implements Adapter
     }
 
     /**
+     * Calculates a key for use in storing a series of MetricFamilySamples, and being able to look up which samples
+     * exists. Expects an array of the form
+     *
+     * array(
+     *   'type' => 'gauge',
+     *   'name' => 'foo_metric_name',
+     *   'labelNames' => array(
+     *     'foo'
+     *   )
+     *
      * @param array $data
+     *
      * @return string
      */
-    private function storageKey(array $data)
+    private function typeKey(array $data)
     {
         return implode(
             ':',
@@ -230,8 +274,36 @@ class Filesystem implements Adapter
                 self::PROMETHEUS_PREFIX,
                 $data['type'],
                 $data['name'],
-                json_encode($data['labelValues']),
-                'value'
+                json_encode($data['labelNames'])
+            )
+        );
+    }
+
+    /**
+     * Calculates a key for use in storing a series of Samples, and being able to look up which samples exist. Expects
+     * an array of the form:
+     *
+     * array(
+     *   'name' => 'foo_metric_name',
+     *   'labelNames' => array(
+     *      'foo'
+     *   ),
+     *   'labelValues' => array(
+     *      'bar'
+     *   ),
+     *
+     * @param array $data
+     * @return string
+     */
+    private function valueKey(array $data)
+    {
+        return implode(
+            ':',
+            array(
+                self::PROMETHEUS_PREFIX,
+                $data['name'],
+                json_encode($data['labelNames']),
+                json_encode($data['labelValues'])
             )
         );
     }
