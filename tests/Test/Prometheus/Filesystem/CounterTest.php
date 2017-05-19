@@ -1,9 +1,9 @@
 <?php
 
 
-namespace Test\Prometheus\InMemory;
+namespace Test\Prometheus\Filesystem;
 
-use Prometheus\Storage\InMemory;
+use Prometheus\Storage\Filesystem;
 use Test\Prometheus\AbstractCounterTest;
 
 /**
@@ -11,9 +11,10 @@ use Test\Prometheus\AbstractCounterTest;
  */
 class CounterTest extends AbstractCounterTest
 {
+
     public function configureAdapter()
     {
-        $this->adapter = new InMemory();
-        $this->adapter->flushMemory();
+        $this->adapter = new Filesystem();
+        $this->adapter->flushFilesystem();
     }
 }
