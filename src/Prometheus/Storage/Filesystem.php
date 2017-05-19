@@ -207,43 +207,7 @@ class Filesystem implements Adapter
      */
     public function updateGauge(array $dataToStore)
     {
-        // Todo: Need to add or update it based on the command entry
-        $typeKey     = $this->typeKey($dataToStore);
-        $metric      = $this->getMetric($typeKey);
-
-        $data = array(
-            'name'       => $dataToStore['name'],
-            'help'       => $dataToStore['help'],
-            'type'       => $dataToStore['type'],
-            'labelNames' => $dataToStore['labelNames']
-        );
-
-        // Merge logic
-        if ($metric) {
-            /** @var \Prometheus\Sample[] $samples */
-            $samples = $metric->getSamples();
-            foreach ($samples as $sampleObject) {
-                $sample = array(
-                    'name' => $sampleObject->getName(),
-                    'labelNames' => array(),
-                    'labelValues' => $sampleObject->getLabelValues(),
-                    'value' => $sampleObject->getValue()
-                );
-
-                $data['samples'][$this->valueKey($sample)] = $sample;
-            }
-        }
-
-        $sample = array(
-            'name'        => $dataToStore['name'],
-            'labelNames'  => array(),
-            'labelValues' => $dataToStore['labelValues'],
-            'value'       => $dataToStore['value']
-        );
-
-        $data['samples'][$this->valueKey($sample)] = $sample;
-
-        $this->setMetric($data);
+        $this->mergeMetric($dataToStore['command'], $dataToStore);
     }
 
     /**
