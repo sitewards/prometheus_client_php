@@ -44,6 +44,9 @@ class Filesystem implements Adapter
      */
     const PROMETHEUS_PREFIX = 'prom';
 
+    const FILE_MODE_WRITE = 'w';
+    const FILE_MODE_READ = 'r';
+
     /*
      * @param array $options
      */
@@ -185,7 +188,7 @@ class Filesystem implements Adapter
      */
     private function readMetricsFromDisk()
     {
-        $handle   = $this->getFileHandle();
+        $handle   = $this->getFileHandle(self::FILE_MODE_READ);
 
         // The results of previous filesize checks in this file will be cached by PHP, and will influence the amount of
         // content read by PHP the second filesize check. We are deliberately persisting the metrics to disk multiple
@@ -206,6 +209,8 @@ class Filesystem implements Adapter
         $metrics    = $this->parser->parse($contents);
         $keyMetrics = array();
 
+        // Add keys to the metrics.
+        // Todo: This needs thinking about; this is not a good place for it.
         foreach ($metrics as $metric) {
             /** @var MetricFamilySamples $metric */
             $key = $this->typeKey(
@@ -229,9 +234,17 @@ class Filesystem implements Adapter
      */
     private function writeMetricsToDisk(array $metrics)
     {
+        // Sort the metrics.
+        usort(
+            $metrics,
+            function ($element) {
+                $foo = $element;
+            }
+        );
+
         $content = $this->renderer->render($metrics);
 
-        fwrite($this->getFileHandle(), $content);
+        fwrite($this->getFileHandle(self::FILE_MODE_WRITE), $content);
     }
 
     /**
@@ -243,13 +256,10 @@ class Filesystem implements Adapter
      * @throws StorageException if the file is not writable.
      * @return resource;
      */
-    private function getFileHandle()
+    private function getFileHandle($mode)
     {
-        // Touch the file to ensure that it exists, as r+ does not open the file if it does not exist. Touch does not
-        // modify content.
-        touch($this->options['path']);
 
-        $handle = fopen($this->options['path'], 'r+');
+        $handle = fopen($this->options['path'], $mode);
 
         if ($handle === false) {
             throw new StorageException(
