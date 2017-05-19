@@ -112,9 +112,75 @@ class Filesystem implements Adapter
         // TODO: Implement updateHistogram() method.
     }
 
-    public function updateCounter(array $data)
+    private function mergeMetric($operation, $dataToStore)
     {
-        // TODO: Implement updateCounter() method.
+        $typeKey = $this->typeKey($dataToStore);
+        $metric  = $this->getMetric($typeKey);
+
+        $data = array(
+            'name'       => $dataToStore['name'],
+            'help'       => $dataToStore['help'],
+            'type'       => $dataToStore['type'],
+            'labelNames' => $dataToStore['labelNames'],
+            'samples'    => array()
+        );
+
+        // Merge logic
+        if ($metric) {
+            /** @var \Prometheus\Sample[] $samples */
+            $samples = $metric->getSamples();
+            foreach ($samples as $sampleObject) {
+                $sample = array(
+                    'name' => $sampleObject->getName(),
+                    'labelNames' => array(),
+                    'labelValues' => $sampleObject->getLabelValues(),
+                    'value' => $sampleObject->getValue()
+                );
+
+                $data['samples'][$this->valueKey($sample)] = $sample;
+            }
+        }
+
+        $sample = array(
+            'name'        => $dataToStore['name'],
+            'labelNames'  => array(),
+            'labelValues' => $dataToStore['labelValues'],
+            'value'       => $dataToStore['value']
+        );
+
+        switch ($operation) {
+            case self::COMMAND_INCREMENT_INTEGER:
+                $value = 0;
+
+                if (isset($data['samples'][$this->valueKey($sample)])) {
+                    $value = $data['samples'][$this->valueKey($sample)]['value'];
+                }
+
+                $value = $value + $dataToStore['value'];
+                $sample['value'] = $value;
+                break;
+            case self::COMMAND_INCREMENT_FLOAT:
+                $value = 0;
+
+                if (isset($data['samples'][$this->valueKey($sample)])) {
+                    $value = $data['samples'][$this->valueKey($sample)]['value'];
+                }
+
+                $value = $value + $dataToStore['value'];
+                $sample['value'] = $value;
+                break;
+            case self::COMMAND_SET:
+                $sample['value'] = $dataToStore['value'];
+                break;
+        }
+        $data['samples'][$this->valueKey($sample)] = $sample;
+
+        $this->setMetric($data);
+    }
+
+    public function updateCounter(array $dataToStore)
+    {
+        $this->mergeMetric($dataToStore['command'], $dataToStore);
     }
 
     /**
