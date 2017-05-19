@@ -40,14 +40,6 @@ class Filesystem implements Adapter
     const PROMETHEUS_METRICS_FILENAME = 'php.prom';
 
     /**
-     * The same as the file resource modifiers used in PHP. Duplicated here for clarity, as there are no PHP constants
-     *
-     * @see http://php.net/manual/en/function.fopen.php
-     */
-    const FILE_MODE_READ  = 'r';
-    const FILE_MODE_WRITE = 'w';
-
-    /**
      * Designed for namespacing keys in key => value pairs.
      */
     const PROMETHEUS_PREFIX = 'prom';
@@ -253,6 +245,10 @@ class Filesystem implements Adapter
      */
     private function getFileHandle()
     {
+        // Touch the file to ensure that it exists, as r+ does not open the file if it does not exist. Touch does not
+        // modify content.
+        touch($this->options['path']);
+
         $handle = fopen($this->options['path'], 'r+');
 
         if ($handle === false) {
