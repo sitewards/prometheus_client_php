@@ -171,9 +171,23 @@ class Filesystem implements Adapter
     }
 
     /**
-     * Sorts the samples alphabetically, based on label name
+     * Sorts the samples alphabetically, based on label name. Expects an array of the format:
+     *
+     * array(
+     *   array(
+     *     'name'        => <String> metric_name,
+     *     'labelValues' => array(
+     *         <String> ccc
+     *      ),
+     *     'value'       => <Int> 14
+     *   )
+     * )
+     *
+     * @param array $samples
+     *
+     * @return array
      */
-    private function sortSamples($samples)
+    private function sortSamples(array $samples)
     {
         usort(
             $samples,
