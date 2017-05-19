@@ -66,6 +66,24 @@ class Filesystem implements Adapter
     }
 
     /**
+     * Fetches a single metric from disk
+     *
+     * @param string $sKey The metric lookup key. See self::typeKey()
+     *
+     * @return MetricFamilySamples|null
+     */
+    private function getMetric($sKey)
+    {
+        $metrics = $this->readMetricsFromDisk();
+
+        if (isset($metrics[$sKey])) {
+            return $metrics[$sKey];
+        }
+
+        return null;
+    }
+
+    /**
      * @param array $options
      */
     public static function setDefaultOptions(array $options)
@@ -107,26 +125,16 @@ class Filesystem implements Adapter
      */
     public function updateGauge(array $dataToStore)
     {
-
         // Todo: Need to add or update it based on the command entry
 
-        $metrics = $this->readMetricsFromDisk();
         // Todo: This will all need to be pulled out into a "getMetric" or something. Manipulating the blob for each
         // metric is too messy.
 
         $typeKey     = $this->typeKey($dataToStore);
-        $valueKey    = $this->valueKey($dataToStore);
-        $currentMetric = array_filter(
-            $metrics,
-            function ($family) use ($dataToStore) {
-                /** @var $family MetricFamilySamples */
-                if ($family->getName() === $dataToStore['name']) {
-                    return true;
-                }
+        $metric      = $this->getMetric($typeKey);
 
-                return false;
-            }
-        );
+        // Todo: Remove this
+        $metrics = $this->readMetricsFromDisk();
 
         $metricData = array(
             'name'       => $dataToStore['name'],
@@ -135,12 +143,9 @@ class Filesystem implements Adapter
             'labelNames' => $dataToStore['labelNames']
         );
 
-        if ($currentMetric) {
-            /** @var MetricFamilySamples $currentMetric */
-            $currentMetric = array_shift($currentMetric);
-
+        if ($metric) {
             /** @var \Prometheus\Sample[] $samples */
-            $samples = $currentMetric->getSamples();
+            $samples = $metric->getSamples();
             foreach ($samples as $sampleObject) {
                 $sample = array(
                     'name' => $sampleObject->getName(),
