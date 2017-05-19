@@ -3,6 +3,8 @@
 [![Build Status](https://travis-ci.org/Jimdo/prometheus_client_php.svg?branch=master)](https://travis-ci.org/Jimdo/prometheus_client_php)
 [![Code Climate](https://codeclimate.com/github/Jimdo/prometheus_client_php.png)](https://codeclimate.com/github/Jimdo/prometheus_client_php)
 
+***THIS HAS ONLY BEEN FORKED TO CREATE A PR FOR THE FILESYSTEM ADAPTER***. While thi smay be used while upstream
+decides whether this is a good idea, the ultimate goal for this repository is to die. Do not rely on it.
 
 This library uses Redis or APCu to do the client side aggregation.
 If using Redis, we recommend to run a local Redis instance next to your PHP workers.
